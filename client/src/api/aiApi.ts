@@ -2,6 +2,7 @@ import axios from "axios";
 
 const baseUrl = "http://localhost:8000/api";
 
-export const askAI = async (question: string) => {
-    return await axios.post(`${baseUrl}/ai/chat`, { question });
+export const autoWork = async (question: string) => {
+    const res = await axios.post(`${baseUrl}/agent/auto_work`, { question });
+    return res.data;
 };

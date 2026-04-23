@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { Card, Table, Tag, Form, Select, Button, message } from "antd";
 import { ClockCircleOutlined } from "@ant-design/icons";
-import axios from "axios";
+import { getLaborList } from "../../api/laborApi";
+import { getCheckinList, submitCheckin } from "../../api/checkinApi";
+import type { Labor } from "../../api/laborApi";
+import type { Checkin } from "../../api/checkinApi";
 
-const api = axios.create({ baseURL: "http://localhost:8000/api" });
 const { Option } = Select;
-
-interface Labor { id: number; name: string; work_id: string; }
-interface Checkin { id: number; labor_id: number; work_id: string; name: string; checkin_type: string; time: string; }
 
 export default function CheckinPage() {
     const [form] = Form.useForm();
@@ -16,8 +15,8 @@ export default function CheckinPage() {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        api.get("/labor/list").then(res => setLaborList(res.data.data));
-        api.get("/checkin/list").then(res => setCheckinList(res.data.data));
+        getLaborList().then(data => setLaborList(data));
+        getCheckinList().then(data => setCheckinList(data));
     }, []);
 
     const handleCheckin = async () => {
@@ -26,11 +25,11 @@ export default function CheckinPage() {
         if (!labor) return;
         setLoading(true);
         try {
-        await api.post("/checkin/submit", { ...v, work_id: labor.work_id, name: labor.name });
+        await submitCheckin({ ...v, work_id: labor.work_id, name: labor.name });
         message.success("打卡成功");
         form.resetFields();
-        const res = await api.get("/checkin/list");
-        setCheckinList(res.data.data);
+        const data = await getCheckinList();
+        setCheckinList(data);
         } catch { message.error("失败"); }
         setLoading(false);
     };

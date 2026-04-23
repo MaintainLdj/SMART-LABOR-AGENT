@@ -10,18 +10,41 @@ export interface Labor {
     entry_time: string;
     department: string;
     status: string;
+    work_days: number;
 }
 
-// 获取列表
+export interface Checkin {
+    id: number;
+    labor_id: number;
+    work_id: string;
+    name: string;
+    checkin_type: string;
+    time: string;
+}
+
 export const getLaborList = async (): Promise<Labor[]> => {
     const res = await axios.get(`${baseUrl}/labor/list`);
+    return res.data.data;
+};
+
+export const searchLabor = async (work_id: string) => {
+    const res = await axios.get(`${baseUrl}/labor/search`, {
+        params: { work_id }
+    });
     return res.data;
 };
 
-// 按工号搜索
-export const getLaborById = async (work_id: string) => {
-    const res = await axios.get(`${baseUrl}/labor/get_by_id`, {
-        params: { work_id }
-    });
+export const addLabor = async (data: Partial<Labor>) => {
+    const res = await axios.post(`${baseUrl}/labor/add`, data);
+    return res.data;
+};
+
+export const updateLabor = async (id: number, data: Partial<Labor>) => {
+    const res = await axios.put(`${baseUrl}/labor/update/${id}`, data);
+    return res.data;
+};
+
+export const deleteLabor = async (id: number) => {
+    const res = await axios.delete(`${baseUrl}/labor/delete/${id}`);
     return res.data;
 };

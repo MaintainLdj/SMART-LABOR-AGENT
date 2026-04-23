@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import { Layout, Typography } from "antd";
+import { Layout, Typography, message } from "antd";
+import { useEffect, useState } from "react";
+import { wsClient } from "./utils/websocket";
 import LaborPage from "./pages/LaborPage";
 import CheckinPage from "./pages/CheckinPage";
 import AIAgentPage from "./pages/AIAgentPage";
@@ -10,6 +12,23 @@ const { Header, Content } = Layout;
 const { Title } = Typography;
 
 function App() {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    wsClient.onMessage((data) => {
+      // 全局提示
+      if (data.msg) {
+        if (data.type === "warning") {
+          message.warning(data.msg);
+        } else {
+          message.success(data.msg);
+        }
+      }
+      // 触发页面刷新
+      setRefreshKey(prev => prev + 1);
+    });
+  }, []);
+
   return (
     <Router>
       <Layout style={{ minHeight: "100vh" }}>
@@ -26,8 +45,8 @@ function App() {
 
         <Content style={{ padding: "24px" }}>
           <Routes>
-            <Route path="/" element={<LaborPage />} />
-            <Route path="/checkin" element={<CheckinPage />} />
+            <Route path="/" element={<LaborPage key={refreshKey} />} />
+            <Route path="/checkin" element={<CheckinPage key={refreshKey} />} />
             <Route path="/ai" element={<AIAgentPage />} />
           </Routes>
         </Content>

@@ -2,6 +2,7 @@ from langgraph.graph import StateGraph, END
 from typing import TypedDict, List, Dict
 import os
 from rag.labor_knowledge import search_knowledge
+from zhipuai import ZhipuAI
 
 # 模拟MCP协议插件（对接硬件/API/EDI）
 class MCPPlugin:
@@ -84,8 +85,33 @@ def ai_answer(state: LaborState):
 
 要求：条理清晰、专业、劳务场景化、突出AI自治能力。
 """
-    # 本地兜底回答（有KEY自动调用智谱）
-    answer = f"""
+    
+    api_key = os.getenv("ZHIPU_API_KEY")
+    
+    if api_key:
+        try:
+            client = ZhipuAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model="glm-4",
+                messages=[
+                    {"role": "system", "content": "你是智慧劳务自治AI助手，专门处理智慧劳务管理相关问题，提供专业、准确的回答。"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000
+            )
+            answer = response.choices[0].message.content
+        except Exception as e:
+            answer = f"""
+【AI自治服务结果】
+{state['audit_result']}
+异常：{'; '.join(state['warning_msg'])}
+薪资：{state['salary_result']}
+法规参考：已自动匹配建筑劳务合规条款
+（智谱API调用失败：{str(e)}）
+"""
+    else:
+        answer = f"""
 【AI自治服务结果】
 {state['audit_result']}
 异常：{'; '.join(state['warning_msg'])}

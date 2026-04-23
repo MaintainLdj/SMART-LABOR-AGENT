@@ -1,14 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
 from datetime import datetime
 from agent.workflow import agent_workflow
+from typing import List
 
 load_dotenv()
-app = FastAPI(title="智慧劳务自治服务Agent", version="1.0")
+app = FastAPI(title="智慧劳务自治服务Agent", version="2.0")
 
+# ✅ 正确跨域配置（兼容 WebSocket）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,7 +19,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 人员模型
+# ------------------- WebSocket 连接管理器 -------------------
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for conn in self.active_connections:
+            try:
+                await conn.send_json(message)
+            except:
+                pass
+
+manager = ConnectionManager()
+
+# ------------------- 数据模型 -------------------
 class LaborItem(BaseModel):
     name: str
     work_id: str
@@ -26,27 +49,33 @@ class LaborItem(BaseModel):
     status: str
     work_days: int
 
-# 考勤模型
 class CheckinRecord(BaseModel):
     labor_id: int
     work_id: str
     name: str
-    checkin_type: str  # 上班/下班
+    checkin_type: str
 
-# 全局人员数据
+# ------------------- 全局数据 -------------------
 labor_list = [
     {"id": 1, "name": "张三", "work_id": "LA2024001", "position": "建筑工人", "entry_time": "2024-01-15", "department": "施工一组", "status": "在岗", "work_days": 28},
     {"id": 2, "name": "李四", "work_id": "LA2024002", "position": "电工", "entry_time": "2024-02-20", "department": "机电组", "status": "在岗", "work_days": 27},
     {"id": 3, "name": "王五", "work_id": "LA2024003", "position": "安全员", "entry_time": "2024-03-10", "department": "安全组", "status": "请假", "work_days": 20},
     {"id": 4, "name": "赵六", "work_id": "LA2024004", "position": "焊工", "entry_time": "2024-04-05", "department": "施工二组", "status": "在岗", "work_days": 29}
 ]
-
 next_id = 5
-
-# 考勤记录
 checkin_records = []
 
-# ==================== 人员接口 ====================
+# ------------------- ✅ WebSocket 接口（修复 403） -------------------
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    try:
+        await manager.connect(websocket)
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# ------------------- 人员管理 -------------------
 @app.get("/api/labor/list")
 def get_labor_list():
     return {"code": 200, "data": labor_list}
@@ -59,7 +88,7 @@ def search_labor(work_id: str = ""):
     return {"code": 200, "data": item} if item else {"code": 404, "message": "未找到人员"}
 
 @app.post("/api/labor/add")
-def add_labor(item: LaborItem):
+async def add_labor(item: LaborItem):
     global next_id
     new_item = {
         "id": next_id,
@@ -73,10 +102,11 @@ def add_labor(item: LaborItem):
     }
     labor_list.append(new_item)
     next_id += 1
+    await manager.broadcast({"type": "labor_add", "msg": f"【人员】{item.name} 已录入"})
     return {"code": 200, "message": "添加成功"}
 
 @app.put("/api/labor/update/{labor_id}")
-def update_labor(labor_id: int, item: LaborItem):
+async def update_labor(labor_id: int, item: LaborItem):
     for obj in labor_list:
         if obj["id"] == labor_id:
             obj["name"] = item.name
@@ -85,18 +115,20 @@ def update_labor(labor_id: int, item: LaborItem):
             obj["department"] = item.department
             obj["status"] = item.status
             obj["work_days"] = item.work_days
+            await manager.broadcast({"type": "labor_update", "msg": f"【人员】{item.name} 已更新"})
             return {"code": 200, "message": "更新成功"}
     return {"code": 404, "message": "未找到"}
 
 @app.delete("/api/labor/delete/{labor_id}")
-def delete_labor(labor_id: int):
+async def delete_labor(labor_id: int):
     global labor_list
     labor_list = [x for x in labor_list if x["id"] != labor_id]
+    await manager.broadcast({"type": "labor_delete", "msg": "【人员】已删除"})
     return {"code": 200, "message": "删除成功"}
 
-# ==================== Day8 考勤接口 ====================
+# ------------------- 考勤打卡 -------------------
 @app.post("/api/checkin/submit")
-def submit_checkin(record: CheckinRecord):
+async def submit_checkin(record: CheckinRecord):
     new_record = {
         "id": len(checkin_records) + 1,
         "labor_id": record.labor_id,
@@ -106,15 +138,19 @@ def submit_checkin(record: CheckinRecord):
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     checkin_records.append(new_record)
+    await manager.broadcast({
+        "type": "checkin",
+        "msg": f"【打卡】{record.name} {record.checkin_type} 成功"
+    })
     return {"code": 200, "message": "打卡成功", "data": new_record}
 
 @app.get("/api/checkin/list")
 def get_checkin_list():
     return {"code": 200, "data": checkin_records}
 
-# ==================== AI自治接口 ====================
+# ------------------- AI 自治 -------------------
 @app.post("/api/agent/auto_work")
-def agent_auto_work(req: dict):
+async def agent_auto_work(req: dict):
     try:
         result = agent_workflow.invoke({
             "question": req.get("question", ""),
@@ -122,20 +158,17 @@ def agent_auto_work(req: dict):
             "checkin_data": {},
             "salary_result": {},
             "warning_msg": [],
+            "audit_result": "",
+            "rag_context": "",
             "final_answer": ""
         })
-        return {
-            "code": 200,
-            "data": {
-                "checkin": result["checkin_data"],
-                "warning": result["warning_msg"],
-                "salary": result["salary_result"],
-                "answer": result["final_answer"]
-            }
-        }
+        if result.get("warning_msg"):
+            for w in result["warning_msg"]:
+                await manager.broadcast({"type": "warning", "msg": f"【预警】{w}"})
+        return {"code": 200, "data": result}
     except Exception as e:
-        return {"code": 500, "message": f"异常：{str(e)}"}
+        return {"code": 500, "message": str(e)}
 
 @app.get("/")
 def index():
-    return {"msg": "Day8 考勤模块运行成功"}
+    return {"status": "running", "msg": "智慧劳务Agent + WebSocket 正常运行"}
