@@ -24,16 +24,16 @@ app.add_middleware(
 )
 
 # ==================== JWT 登录配置 ====================
-SECRET_KEY = "smart-labor-agent-2025"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 120
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+SECRET_KEY = "smart-labor-agent-2025"  # JWT签名密钥
+ALGORITHM = "HS256"                     # 加密算法
+ACCESS_TOKEN_EXPIRE_MINUTES = 120       # Token有效期120分钟
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  # 密码加密上下文
 
 # 模拟用户
 fake_users = {
     "admin": {
         "username": "admin",
-        "password": pwd_context.hash("123456"),
+        "password": pwd_context.hash("123456"), # 密码被bcrypt加密
         "role": "admin"
     }
 }

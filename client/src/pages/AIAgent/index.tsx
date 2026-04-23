@@ -45,12 +45,14 @@ export default function AIAgentPage() {
         <Input.TextArea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            rows={6}
-            placeholder="可查询：
-        • 劳务合规审计、实名制核验
-        • 建筑安全规范、工资支付条例
-        • 合同风险、纠纷预警
-        • 考勤硬件状态、电子签履约"
+            rows={10}
+          placeholder="请输入你要AI自治执行的任务：
+• 查询所有人员信息
+• 核算本月薪资
+• 检查考勤异常
+• 劳务合规审计
+• 咨询实名制/合同/安全/工资法规
+• 生成劳务风险报告"
         />
         <Button type="primary" danger onClick={handleAI} loading={loading} style={{ alignSelf: "flex-end" }}>启动AI自治流程</Button>
 
