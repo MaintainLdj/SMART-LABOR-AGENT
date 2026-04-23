@@ -1,58 +1,87 @@
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import { Layout, Typography, message } from "antd";
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
+import { Layout, Typography, Button, message } from "antd";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { wsClient } from "./utils/websocket";
-import LaborPage from "./pages/LaborPage";
-import CheckinPage from "./pages/CheckinPage";
-import AIAgentPage from "./pages/AIAgentPage";
+import { isLogin, logout } from "./utils/auth";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Labor from "./pages/Labor";
+import Checkin from "./pages/Checkin";
+import AIAgent from "./pages/AIAgent";
 import "./App.css";
-import "antd/dist/reset.css";
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-function App() {
-  const [refreshKey, setRefreshKey] = useState(0);
+function RequireAuth({ children }: { children: ReactNode }) {
+  const nav = useNavigate();
+  useEffect(()=>{
+    if (!isLogin()) {
+      message.warning("请先登录");
+      nav("/login");
+    }
+  },[nav]);
+  return isLogin() ? children : <></>;
+}
 
-  useEffect(() => {
-    wsClient.onMessage((data) => {
-      // 全局提示
-      if (data.msg) {
-        if (data.type === "warning") {
-          message.warning(data.msg);
-        } else {
-          message.success(data.msg);
-        }
+function App() {
+  const [, setRK] = useState(0);
+  const nav = useNavigate();
+
+  useEffect(()=>{
+    wsClient.connect();
+    wsClient.onMessage((d: { type?: string; msg?: string })=>{
+      if (d.type === "warning") {
+        message.warning(d.msg || "");
+      } else {
+        message.success(d.msg || "");
       }
-      // 触发页面刷新
-      setRefreshKey(prev => prev + 1);
+      setRK(p => p + 1);
     });
-  }, []);
+  },[]);
+
+  const handleLogout = () => {
+    logout();
+    message.success("退出成功");
+    nav("/login");
+  };
 
   return (
-    <Router>
-      <Layout style={{ minHeight: "100vh" }}>
-        <Header style={{ background: "#001529", padding: "0 24px" }}>
-          <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-            <Title level={4} style={{ margin: 0, color: "#fff" }}>智慧劳务自治Agent</Title>
-            <div style={{ display: "flex", gap: "18px" }}>
-              <Link to="/" className="nav-link">人员管理</Link>
+    <Layout style={{minHeight:"100vh"}}>
+      <Header style={{background:"#001529",padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:24,alignItems:"center"}}>
+          <Title level={4} style={{margin:0,color:"#fff"}}>智慧劳务自治Agent</Title>
+          {isLogin() && (
+            <div style={{display:"flex",gap:18}}>
+              <Link to="/" className="nav-link">数据大盘</Link>
+              <Link to="/labor" className="nav-link">人员管理</Link>
               <Link to="/checkin" className="nav-link">考勤打卡</Link>
-              <Link to="/ai" className="nav-link">AI自治中心</Link>
+              <Link to="/ai" className="nav-link">AI自治</Link>
             </div>
-          </div>
-        </Header>
+          )}
+        </div>
+        {isLogin() && <Button type="text" style={{color:"#fff"}} onClick={handleLogout}>退出</Button>}
+      </Header>
+      <Content style={{padding:"24px"}}>
+        <Routes>
+          <Route path="/login" element={<Login/>}/>
+          <Route path="/" element={<RequireAuth><Dashboard/></RequireAuth>}/>
+          <Route path="/labor" element={<RequireAuth><Labor/></RequireAuth>}/>
+          <Route path="/checkin" element={<RequireAuth><Checkin/></RequireAuth>}/>
+          <Route path="/ai" element={<RequireAuth><AIAgent/></RequireAuth>}/>
+        </Routes>
+      </Content>
+    </Layout>
+  );
+}
 
-        <Content style={{ padding: "24px" }}>
-          <Routes>
-            <Route path="/" element={<LaborPage key={refreshKey} />} />
-            <Route path="/checkin" element={<CheckinPage key={refreshKey} />} />
-            <Route path="/ai" element={<AIAgentPage />} />
-          </Routes>
-        </Content>
-      </Layout>
+function Root() {
+  return (
+    <Router>
+      <App />
     </Router>
   );
 }
 
-export default App;
+export default Root;

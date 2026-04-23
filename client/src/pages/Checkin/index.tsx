@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Card, Table, Tag, Form, Select, Button, message } from "antd";
 import { ClockCircleOutlined } from "@ant-design/icons";
-import { getLaborList } from "../../api/laborApi";
-import { getCheckinList, submitCheckin } from "../../api/checkinApi";
-import type { Labor } from "../../api/laborApi";
-import type { Checkin } from "../../api/checkinApi";
+import { getLaborList } from "../../api/labor";
+import { getCheckinList, submitCheckin } from "../../api/checkin";
+import type { Labor } from "../../api/labor";
+import type { Checkin } from "../../api/checkin";
 
 const { Option } = Select;
 

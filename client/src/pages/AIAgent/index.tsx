@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, Input, Button, Space, Tag, message } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
-import { autoWork } from "../../api/aiApi";
+import { autoWork } from "../../api/ai";
 
 // 定义 AI 自治结果数据类型
 interface AgentData {
@@ -41,7 +41,7 @@ export default function AIAgentPage() {
 
   return (
     <Card title="AI自治自动化中心" extra={<RobotOutlined />}>
-      <Space direction="vertical" style={{ width: "100%" }}>
+      <Space orientation="vertical" style={{ width: "100%" }}>
         <Input.TextArea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}

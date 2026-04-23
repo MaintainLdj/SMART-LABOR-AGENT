@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button, Card, Table, Tag, Space, Input, message, Spin, Modal, Form, InputNumber, Popconfirm } from "antd";
 import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
-import { getLaborList, searchLabor, addLabor, updateLabor, deleteLabor } from "../../api/laborApi";
-import type { Labor } from "../../api/laborApi";
+import { getLaborList, searchLabor, addLabor, updateLabor, deleteLabor } from "../../api/labor";
+import type { Labor } from "../../api/labor";
 
 export default function LaborPage() {
     const [form] = Form.useForm();
