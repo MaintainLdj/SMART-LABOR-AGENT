@@ -31,12 +31,17 @@ function App() {
 
   useEffect(()=>{
     wsClient.connect();
-    wsClient.onMessage((d: { type?: string; msg?: string })=>{
-      if (d.type === "warning") {
-        message.warning(d.msg || "");
-      } else {
-        message.success(d.msg || "");
-      }
+    wsClient.onMessage((data: { type?: string; msg?: string })=>{
+      switch(data.type) {
+      case "warning":
+        message.warning(data.msg);
+        break;
+      case "system":
+        message.info(data.msg);
+        break;
+      default:
+        message.success(data.msg);
+    }
       setRK(p => p + 1);
     });
   },[]);

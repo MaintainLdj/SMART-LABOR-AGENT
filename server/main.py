@@ -190,3 +190,52 @@ async def agent_api(req:dict):
 @app.get("/")
 def index():
     return {"msg":"智慧劳务Agent v3.0 运行成功"}
+
+# ==================== Day15 新增：AI生成Excel报表 ====================
+import pandas as pd
+from openpyxl import Workbook
+import uuid
+
+@app.get("/api/export/labor-report")
+async def export_labor_report():
+    """AI一键导出劳务综合报表：人员+考勤+薪资"""
+    salary_data = {p["name"]: p["work_days"] * 220 for p in labor_list}
+    # 组装报表数据
+    report_data = []
+    for item in labor_list:
+        report_data.append({
+            "工号": item["work_id"],
+            "姓名": item["name"],
+            "部门": item["department"],
+            "岗位": item["position"],
+            "在岗状态": item["status"],
+            "月度工时": item["work_days"],
+            "核算薪资(元)": salary_data.get(item["name"], 0)
+        })
+    # 生成临时文件
+    file_name = f"劳务综合报表_{uuid.uuid4().hex[:8]}.xlsx"
+    save_path = f"./{file_name}"
+    df = pd.DataFrame(report_data)
+    df.to_excel(save_path, index=False)
+
+    # 自动广播报表生成通知
+    await manager.broadcast({
+        "type": "system",
+        "msg": "✅ AI已自动生成劳务人员&薪资综合Excel报表"
+    })
+    return {"code": 200, "url": save_path, "fileName": file_name}
+
+# ==================== Day15 新增：全局主动预警推送 ====================
+@app.post("/api/system/auto-warning")
+async def system_auto_warning():
+    """系统定时自动巡检，主动推送风险预警"""
+    warn_list = []
+    for p in labor_list:
+        if p["work_days"] < 22:
+            warn_list.append(f"{p['name']} 月度工时不达标，存在薪资合规风险")
+        if len(p["work_id"]) < 8:
+            warn_list.append(f"{p['name']} 实名制信息不完善，不符合住建监管要求")
+
+    for msg in warn_list:
+        await manager.broadcast({"type": "warning", "msg": msg})
+    return {"code": 200, "warningList": warn_list, "count": len(warn_list)}
