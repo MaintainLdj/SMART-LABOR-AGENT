@@ -172,20 +172,41 @@ def dashboard_stat():
         }
     }
 
+
+# 简易全局会话内存（单用户）
+chat_history = []
+
 # ==================== AI 接口 ====================
 @app.post("/api/agent/auto_work")
-async def agent_api(req:dict):
+async def agent_auto_work(req: dict):
+    global chat_history
+    question = req.get("question", "")
     try:
-        res = agent_workflow.invoke({
-            "question":req.get("question",""),
-            "labor_data":[],"checkin_data":{},"salary_result":{},
-            "warning_msg":[],"audit_result":"","rag_context":"","final_answer":""
+        result = agent_workflow.invoke({
+            "question": question,
+            "history": chat_history,
+            "labor_data": [],
+            "checkin_data": [],
+            "salary_result": {},
+            "warning_msg": [],
+            "audit_result": "",
+            "rag_context": "",
+            "final_answer": "",
+            "task_intent": "",
+            "tool_name": "",
+            "tool_result": ""
         })
-        for w in res.get("warning_msg",[]):
-            await manager.broadcast({"type":"warning","msg":w})
-        return {"code":200,"data":res}
+        # 保存本轮问答到历史
+        chat_history.append(f"用户：{question}")
+        chat_history.append(f"AI：{result['final_answer'][:200]}")
+
+        # 预警推送
+        if result.get("warning_msg"):
+            for w in result["warning_msg"]:
+                await manager.broadcast({"type": "warning", "msg": w})
+        return {"code": 200, "data": result}
     except Exception as e:
-        return {"code":500,"msg":str(e)}
+        return {"code": 500, "message": str(e)}
 
 @app.get("/")
 def index():

@@ -12,6 +12,7 @@ client = ZhipuAI(api_key=os.getenv("ZHIPU_API_KEY", ""))
 # 状态结构体
 class LaborState(TypedDict):
     question: str
+    history: list[str]      # 新增：对话历史
     labor_data: List[Dict]
     checkin_data: List[Dict]
     salary_result: Dict
@@ -32,6 +33,13 @@ def load_business_data(state: LaborState):
     ]
     return {"labor_data": labor_data}
 
+# 新增：拼接多轮对话，实现上下文连续理解
+def concat_history(state: LaborState):
+    history_text = ""
+    if state["history"]:
+        history_text = "历史对话：\n" + "\n".join(state["history"][-6:])
+    return {"history_text": history_text}
+
 # 2. AI自主决策：选择需要调用的工具
 def ai_tool_choose(state: LaborState):
     prompt = """
@@ -42,6 +50,8 @@ query_abnormal-筛查异常人员
 calc_salary-核算全员薪资
 query_dept-按部门查人
 rag_only-仅法规咨询，无需工具
+weekly_report-生成劳务周报
+full_risk-全维度风险排查
 
 用户问题：""" + state["question"]
     try:
@@ -66,6 +76,10 @@ def run_tool(state: LaborState):
         # 简单提取部门关键词
         dept = "施工" if "施工" in q else "机电" if "机电" in q else "安全"
         res = TOOL_MAP["query_dept"](dept)
+    elif tool_name == "weekly_report":
+        res = TOOL_MAP["weekly_report"]()
+    elif tool_name == "full_risk":
+        res = TOOL_MAP["full_risk   "]()
     else:
         res = "无需调用业务工具"
     return {"tool_result": res}
@@ -86,12 +100,18 @@ def compliance_audit(state: LaborState):
 # 6. 整合工具结果+RAG+业务数据生成最终回答
 def ai_final_answer(state: LaborState):
     prompt = f"""
-你是智慧劳务自治Agent，整合下面所有信息，给出完整、专业的回答。
-用户问题：{state['question']}
+你是智慧劳务自治服务Agent，支持多轮连续对话。
+{state.get("history_text", "")}
+
+当前用户问题：{state['question']}
 工具执行结果：{state['tool_result']}
 合规预警：{state['warning_msg']}
 法规参考(RAG)：{state['rag_context']}
-要求：条理清晰，贴合建筑劳务场景。
+
+要求：
+1. 结合上文上下文连贯回答
+2. 贴合建筑劳务场景、用词专业
+3. 分点简洁输出
 """
     try:
         resp = client.chat.completions.create(model="glm-4",messages=[{"role":"user","content":prompt}])
@@ -108,6 +128,7 @@ def ai_final_answer(state: LaborState):
 # ============ 重构完整自治工作流 ============
 workflow = StateGraph(LaborState)
 workflow.add_node("load_data", load_business_data)
+workflow.add_node("concat_history", concat_history)
 workflow.add_node("choose_tool", ai_tool_choose)
 workflow.add_node("exec_tool", run_tool)
 workflow.add_node("rag", rag_retrieve)
@@ -116,7 +137,8 @@ workflow.add_node("gen_answer", ai_final_answer)
 
 # 全新执行链路：数据加载→AI选工具→执行工具→RAG检索→合规审计→生成回答
 workflow.set_entry_point("load_data")
-workflow.add_edge("load_data", "choose_tool")
+workflow.add_edge("load_data", "concat_history")
+workflow.add_edge("concat_history", "choose_tool")
 workflow.add_edge("choose_tool", "exec_tool")
 workflow.add_edge("exec_tool", "rag")
 workflow.add_edge("rag", "audit")

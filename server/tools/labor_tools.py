@@ -47,10 +47,41 @@ def query_department_staff(dept_name:str) -> str:
         return "未查询到该部门人员"
     return "\n".join([f"{x['name']} - {x['position']}" for x in filter_list])
 
+def generate_labor_weekly_report() -> str:
+    """AI自动生成劳务管理周报"""
+    total = len(labor_list)
+    abnormal_count = sum(1 for i in labor_list if i["work_days"] < 22)
+    on_job_count = sum(1 for i in labor_list if i["status"] == "在岗")
+
+    report = f"""
+# 建筑劳务管理周报
+1. 人员概况：在册总人数{total}人，在岗{on_job_count}人
+2. 合规风险：工时异常人员{abnormal_count}人
+3. 考勤情况：整体出勤稳定，少数人员出勤不达标
+4. 合规建议：
+- 完善人员实名制信息核验
+- 加强日常考勤监管
+- 定期排查劳动合同签署情况
+5. 安全提示：落实每日安全交底与防护检查
+"""
+    return report
+
+def get_full_risk_check() -> str:
+    """全维度风险综合排查报告"""
+    risk_list = []
+    for p in labor_list:
+        if len(p["work_id"]) < 8:
+            risk_list.append(f"【实名制风险】{p['name']}")
+        if p["work_days"] < 22:
+            risk_list.append(f"【考勤风险】{p['name']} 出勤不足")
+    return "\n".join(risk_list) if risk_list else "本期无劳务合规风险"
+
 # 工具注册表
 TOOL_MAP = {
     "query_staff": query_all_staff,
     "query_abnormal": query_abnormal_staff,
     "calc_salary": calculate_all_salary,
-    "query_dept": query_department_staff
+    "query_dept": query_department_staff,
+    'weekly_report': generate_labor_weekly_report,
+    'full_risk': get_full_risk_check
 }

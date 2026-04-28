@@ -60,6 +60,7 @@ export default function AIAgentPage() {
       return;
     }
     setAgentData(null);
+    setWarningList([]);
     setLoading(true);
     try {
       const res = await api.post("/agent/auto_work", { question });
@@ -111,7 +112,10 @@ export default function AIAgentPage() {
 2. 筛查本月异常员工
 3. 计算全员工资
 4. 查询施工一组人员
-5. 劳务合同法律要求"
+5. 劳务合同法律要求
+• 生成本周劳务管理周报
+• 全项目合规风险排查
+• 上一问继续补充说明"
             style={{flex:1}}
           />
           <Button 
