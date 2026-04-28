@@ -59,6 +59,7 @@ export default function AIAgentPage() {
       message.warning("请输入问题或使用语音提问");
       return;
     }
+    setAgentData(null);
     setLoading(true);
     try {
       const res = await api.post("/agent/auto_work", { question });
@@ -98,14 +99,19 @@ export default function AIAgentPage() {
 
   return (
     <Card title="AI自治自动化中心" extra={<RobotOutlined style={{fontSize:20}} />}>
-      <Space direction="vertical" style={{ width: "100%" }} size="middle">
+      <Space orientation="vertical" style={{ width: "100%" }} size="middle">
         {/* 语音+输入区域 */}
         <Space.Compact style={{width:"100%"}}>
           <Input.TextArea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            rows={3}
-            placeholder="AI语音/文字提问：核算薪资、合规审计、法规咨询、风险排查"
+            rows={10}
+            placeholder="示例问题：
+1. 查询所有工人信息
+2. 筛查本月异常员工
+3. 计算全员工资
+4. 查询施工一组人员
+5. 劳务合同法律要求"
             style={{flex:1}}
           />
           <Button 

@@ -3,147 +3,124 @@ from typing import TypedDict, List, Dict
 from dotenv import load_dotenv
 import os
 from zhipuai import ZhipuAI
-from rag.labor_knowledge import search_knowledge
+from rag.labor_knowledge_base import retrieve_relevant_knowledge
+from tools.labor_tools import TOOL_MAP
 
-# 加载环境变量
 load_dotenv()
-client = ZhipuAI(api_key=os.getenv("ZHIPU_API_KEY"))
+client = ZhipuAI(api_key=os.getenv("ZHIPU_API_KEY", ""))
 
-# 全局状态（劳务自治核心）
+# 状态结构体
 class LaborState(TypedDict):
     question: str
-    labor_data: List[Dict]       # 人员数据
-    checkin_data: List[Dict]     # 考勤数据
-    salary_result: Dict          # 薪资结果
-    warning_msg: List[str]       # 异常预警
-    audit_result: str            # 合规审计
-    rag_context: str             # 法规知识
-    final_answer: str            # AI 最终回答
-    task_intent: str             # AI 识别意图：查询/核算/预警/咨询
+    labor_data: List[Dict]
+    checkin_data: List[Dict]
+    salary_result: Dict
+    warning_msg: List[str]
+    audit_result: str
+    rag_context: str
+    final_answer: str
+    task_intent: str
+    tool_name: str       # 新增：AI选中的工具
+    tool_result: str     # 新增：工具执行结果
 
-# ---------------------- 1. 加载真实业务数据 ----------------------
+# 1. 加载基础数据
 def load_business_data(state: LaborState):
-    # 真实人员、考勤数据（从内存/数据库读取）
     labor_data = [
-        {"id":1,"name":"张三","work_id":"LA2024001","position":"建筑工人","department":"施工一组","status":"在岗","work_days":28},
-        {"id":2,"name":"李四","work_id":"LA2024002","position":"电工","department":"机电组","status":"在岗","work_days":27},
-        {"id":3,"name":"王五","work_id":"LA2024003","position":"安全员","department":"安全组","status":"请假","work_days":20},
-        {"id":4,"name":"赵六","work_id":"LA2024004","position":"焊工","department":"施工二组","status":"在岗","work_days":29}
+        {"id":1,"name":"张三","work_id":"LA2024001","department":"施工一组","status":"在岗","work_days":28},
+        {"id":2,"name":"李四","work_id":"LA2024002","department":"机电组","status":"在岗","work_days":27},
+        {"id":3,"name":"王五","work_id":"LA2024003","department":"安全组","status":"请假","work_days":20},
     ]
-    checkin_data = [
-        {"name":"张三","type":"上班","time":"08:30"},
-        {"name":"李四","type":"上班","time":"08:32"},
-        {"name":"王五","type":"缺勤","time":"未打卡"}
-    ]
-    return {
-        "labor_data": labor_data,
-        "checkin_data": checkin_data
-    }
+    return {"labor_data": labor_data}
 
-# ---------------------- 2. AI 识别用户意图（核心） ----------------------
-def ai_intent_recognize(state: LaborState):
-    prompt = f"""
-用户问题：{state['question']}
-请判断用户意图，只能返回以下之一：
-- query：查询人员/考勤/薪资
-- calculate：核算薪资
-- warning：异常预警/合规检查
-- consult：劳务法规/合同/安全咨询
-"""
+# 2. AI自主决策：选择需要调用的工具
+def ai_tool_choose(state: LaborState):
+    prompt = """
+你是劳务管理AI决策器，请根据用户问题，只返回对应工具标识：
+可选工具：
+query_staff-查询全部人员
+query_abnormal-筛查异常人员
+calc_salary-核算全员薪资
+query_dept-按部门查人
+rag_only-仅法规咨询，无需工具
+
+用户问题：""" + state["question"]
     try:
-        response = client.chat.completions.create(
-            model="glm-4",
-            messages=[{"role":"user","content":prompt}]
-        )
-        intent = response.choices[0].message.content.strip()
+        resp = client.chat.completions.create(model="glm-4",messages=[{"role":"user","content":prompt}])
+        tool_name = resp.choices[0].message.content.strip()
     except:
-        intent = "consult"
-    return {"task_intent": intent}
+        tool_name = "rag_only"
+    return {"tool_name": tool_name}
 
-# ---------------------- 3. RAG 知识库检索 ----------------------
+# 3. 执行选中的工具
+def run_tool(state: LaborState):
+    tool_name = state["tool_name"]
+    q = state["question"]
+    res = ""
+    if tool_name == "query_staff":
+        res = TOOL_MAP["query_staff"]()
+    elif tool_name == "query_abnormal":
+        res = TOOL_MAP["query_abnormal"]()
+    elif tool_name == "calc_salary":
+        res = TOOL_MAP["calc_salary"]()
+    elif tool_name == "query_dept":
+        # 简单提取部门关键词
+        dept = "施工" if "施工" in q else "机电" if "机电" in q else "安全"
+        res = TOOL_MAP["query_dept"](dept)
+    else:
+        res = "无需调用业务工具"
+    return {"tool_result": res}
+
+# 4. RAG法规检索
 def rag_retrieve(state: LaborState):
-    ctx = search_knowledge(state["question"])
-    return {"rag_context": ctx}
+    context = retrieve_relevant_knowledge(state["question"])
+    return {"rag_context": context}
 
-# ---------------------- 4. 合规审计 + 异常预警 ----------------------
+# 5. 合规审计
 def compliance_audit(state: LaborState):
     warnings = []
     for p in state["labor_data"]:
-        # 实名制检查
-        if len(p["work_id"]) < 8:
-            warnings.append(f"【实名制异常】{p['name']} 工号不规范")
-        # 工时检查
         if p["work_days"] < 22:
-            warnings.append(f"【工时异常】{p['name']} 月度工时不足")
-        # 合同检查
-        warnings.append(f"【合同提醒】{p['name']} 请确认电子合同签署")
+            warnings.append(f"{p['name']} 出勤不足")
+    return {"warning_msg": warnings,"audit_result":f"共检测{len(state['labor_data'])}人"}
 
-    audit = f"共审计 {len(state['labor_data'])} 人，发现 {len(warnings)} 项风险"
-    return {
-        "warning_msg": warnings,
-        "audit_result": audit
-    }
-
-# ---------------------- 5. 自动薪资核算 ----------------------
-def auto_salary_calculate(state: LaborState):
-    # 建筑劳务日薪 220 元
-    salary = {p["name"]: f"{p['work_days'] * 220} 元" for p in state["labor_data"]}
-    return {"salary_result": salary}
-
-# ---------------------- 6. 最终 AI 回答（智谱GLM生成） ----------------------
+# 6. 整合工具结果+RAG+业务数据生成最终回答
 def ai_final_answer(state: LaborState):
     prompt = f"""
-你是【智慧劳务自治AI助手】，专业服务建筑劳务、企业HR场景。
-请用简洁、专业、条理清晰的格式回答。
-
+你是智慧劳务自治Agent，整合下面所有信息，给出完整、专业的回答。
 用户问题：{state['question']}
-人员数据：{state['labor_data']}
-考勤记录：{state['checkin_data']}
-薪资结果：{state['salary_result']}
-合规审计：{state['audit_result']}
-异常预警：{state['warning_msg']}
-法规知识：{state['rag_context']}
-
-要求：
-1. 劳务场景化、HR 专业术语
-2. 分点回答，不要多余内容
-3. 突出 AI 自治、自动化结果
+工具执行结果：{state['tool_result']}
+合规预警：{state['warning_msg']}
+法规参考(RAG)：{state['rag_context']}
+要求：条理清晰，贴合建筑劳务场景。
 """
     try:
-        response = client.chat.completions.create(
-            model="glm-4",
-            messages=[{"role":"user","content":prompt}]
-        )
-        answer = response.choices[0].message.content.strip()
-    except:
+        resp = client.chat.completions.create(model="glm-4",messages=[{"role":"user","content":prompt}])
+        answer = resp.choices[0].message.content.strip()
+    except Exception as e:
         answer = f"""
-【AI自治结果】
-{state['audit_result']}
-薪资：{state['salary_result']}
-预警：{'; '.join(state['warning_msg'])}
-如需更智能回答，请配置智谱API Key。
+【AI自主执行结果】
+工具返回：{state['tool_result']}
+合规提示：{';'.join(state['warning_msg'])}
+法规依据：{state['rag_context']}
 """
     return {"final_answer": answer}
 
-# ---------------------- 7. 构建自治工作流 ----------------------
+# ============ 重构完整自治工作流 ============
 workflow = StateGraph(LaborState)
-
-# 注册节点
 workflow.add_node("load_data", load_business_data)
-workflow.add_node("intent", ai_intent_recognize)
+workflow.add_node("choose_tool", ai_tool_choose)
+workflow.add_node("exec_tool", run_tool)
 workflow.add_node("rag", rag_retrieve)
 workflow.add_node("audit", compliance_audit)
-workflow.add_node("salary", auto_salary_calculate)
-workflow.add_node("answer", ai_final_answer)
+workflow.add_node("gen_answer", ai_final_answer)
 
-# 执行流程（真正自治流程）
+# 全新执行链路：数据加载→AI选工具→执行工具→RAG检索→合规审计→生成回答
 workflow.set_entry_point("load_data")
-workflow.add_edge("load_data", "intent")
-workflow.add_edge("intent", "rag")
+workflow.add_edge("load_data", "choose_tool")
+workflow.add_edge("choose_tool", "exec_tool")
+workflow.add_edge("exec_tool", "rag")
 workflow.add_edge("rag", "audit")
-workflow.add_edge("audit", "salary")
-workflow.add_edge("salary", "answer")
-workflow.add_edge("answer", END)
+workflow.add_edge("audit", "gen_answer")
+workflow.add_edge("gen_answer", END)
 
-# 编译
 agent_workflow = workflow.compile()
