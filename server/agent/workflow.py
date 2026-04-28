@@ -12,7 +12,7 @@ client = ZhipuAI(api_key=os.getenv("ZHIPU_API_KEY", ""))
 # 状态结构体
 class LaborState(TypedDict):
     question: str
-    history: list[str]      # 新增：对话历史
+    history: list[str]    # 新增：对话历史
     labor_data: List[Dict]
     checkin_data: List[Dict]
     salary_result: Dict
@@ -79,7 +79,7 @@ def run_tool(state: LaborState):
     elif tool_name == "weekly_report":
         res = TOOL_MAP["weekly_report"]()
     elif tool_name == "full_risk":
-        res = TOOL_MAP["full_risk   "]()
+        res = TOOL_MAP["full_risk"]()
     else:
         res = "无需调用业务工具"
     return {"tool_result": res}
