@@ -3,6 +3,7 @@ import { Card, Table, Tag, Form, Select, Button, message } from "antd";
 import { ClockCircleOutlined } from "@ant-design/icons";
 import { getLaborList } from "../../api/labor";
 import { getCheckinList, submitCheckin } from "../../api/checkin";
+import { getMCPHeartbeat } from "../../api/mcp";
 import type { Labor } from "../../api/labor";
 import type { Checkin } from "../../api/checkin";
 
@@ -46,7 +47,13 @@ export default function CheckinPage() {
             <Select style={{ width: 100 }}><Option value="上班">上班</Option><Option value="下班">下班</Option></Select>
             </Form.Item>
             <Form.Item>
-            <Button type="primary" onClick={handleCheckin} loading={loading} icon={<ClockCircleOutlined />}>打卡</Button>
+            <Button type="primary" style={{ marginRight: 8 }} onClick={handleCheckin} loading={loading} icon={<ClockCircleOutlined />}>打卡</Button>
+            <Button type="primary" onClick={async ()=>{
+                const res = await getMCPHeartbeat();
+                message.info(`机具在线：${res.deviceCode}`);
+                }}>
+                🔌 连接工地MCP考勤机具
+            </Button>
             </Form.Item>
         </Form>
 

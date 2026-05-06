@@ -28,7 +28,7 @@ export default function LaborPage() {
 
     useEffect(() => {
         setTimeout(() => {
-        fetchLaborList();
+            fetchLaborList();
         }, 0)
     }, []);
 

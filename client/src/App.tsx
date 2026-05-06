@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Labor from "./pages/Labor";
 import Checkin from "./pages/Checkin";
 import AIAgent from "./pages/AIAgent";
+import LogPage from "./pages/Log";
 import "./App.css";
 
 const { Header, Content } = Layout;
@@ -63,6 +64,7 @@ function App() {
               <Link to="/labor" className="nav-link">人员管理</Link>
               <Link to="/checkin" className="nav-link">考勤打卡</Link>
               <Link to="/ai" className="nav-link">AI自治</Link>
+              <Link to="/logs" className="nav-link">操作日志</Link>
             </div>
           )}
         </div>
@@ -75,6 +77,7 @@ function App() {
           <Route path="/labor" element={<RequireAuth><Labor/></RequireAuth>}/>
           <Route path="/checkin" element={<RequireAuth><Checkin/></RequireAuth>}/>
           <Route path="/ai" element={<RequireAuth><AIAgent/></RequireAuth>}/>
+          <Route path="/logs" element={<RequireAuth><LogPage/></RequireAuth>}/>
         </Routes>
       </Content>
     </Layout>

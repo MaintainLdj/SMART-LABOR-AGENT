@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from typing import List
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from mcp.mcp_protocol import mcp_client
+from utils.logger import add_oper_log
 
 # AI工作流
 from agent.workflow import agent_workflow
@@ -28,12 +30,15 @@ SECRET_KEY = "smart-labor-agent-2025"  # JWT签名密钥
 ALGORITHM = "HS256"                     # 加密算法
 ACCESS_TOKEN_EXPIRE_MINUTES = 120       # Token有效期120分钟
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  # 密码加密上下文
+# 安全处理 bcrypt 72字节限制 + 版本兼容
+raw_pwd = "123456"
+safe_pwd = raw_pwd.encode('utf-8')[:72].decode('utf-8', 'ignore')
 
 # 模拟用户
 fake_users = {
     "admin": {
         "username": "admin",
-        "password": pwd_context.hash("123456"), # 密码被bcrypt加密
+        "password": pwd_context.hash(safe_pwd),
         "role": "admin"
     }
 }
@@ -123,6 +128,10 @@ async def labor_add(item:LaborItem):
     new_item = {"id":next_id,**item.model_dump(),"entry_time":datetime.now().strftime("%Y-%m-%d")}
     labor_list.append(new_item)
     next_id +=1
+
+    # 写入操作日志
+    add_oper_log(opt_type="人员管理", content=f"新增人员：{item.name}")
+
     await manager.broadcast({"type":"labor","msg":f"新增 {item.name}"})
     return {"code":200}
 
@@ -260,3 +269,14 @@ async def system_auto_warning():
     for msg in warn_list:
         await manager.broadcast({"type": "warning", "msg": msg})
     return {"code": 200, "warningList": warn_list, "count": len(warn_list)}
+
+# MCP 硬件设备心跳接口
+@app.get("/api/mcp/heartbeat")
+async def mcp_heart():
+    return await mcp_client.device_heartbeat()
+
+# 日志查询接口
+@app.get("/api/system/logs")
+def get_system_logs():
+    from utils.logger import get_all_logs
+    return {"code": 200, "data": get_all_logs()}
