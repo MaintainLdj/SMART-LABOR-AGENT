@@ -7,6 +7,8 @@ interface WebSocketMessage {
 }
 
 class WebSocketClient {
+    private reconnectCount = 0;
+    private maxReconnect = 10;
     private ws: WebSocket | null = null;
     private url = "ws://localhost:8000/ws";
     private onMessageCallback: ((data: WebSocketMessage) => void) | null = null;
@@ -47,6 +49,12 @@ class WebSocketClient {
 
     onMessage(callback: (data: WebSocketMessage) => void) {
         this.onMessageCallback = callback;
+    }
+
+    onclose = () => {
+        if(this.reconnectCount >= this.maxReconnect) return;
+        this.reconnectCount++;
+        setTimeout(()=>this.connect(),3000);
     }
 }
 

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, Table, Tag, Form, Select, Button, message } from "antd";
 import { ClockCircleOutlined } from "@ant-design/icons";
-import { getLaborList } from "../../api/labor";
-import { getCheckinList, submitCheckin } from "../../api/checkin";
-import { getMCPHeartbeat } from "../../api/mcp";
-import type { Labor } from "../../api/labor";
-import type { Checkin } from "../../api/checkin";
+import { laborApi } from "../../request/api/labor";
+import { checkinApi } from "../../request/api/checkin";
+import { mcpApi } from "../../request/api/mcp";
+import type { Labor } from "../../request/api/labor";
+import type { Checkin } from "../../request/api/checkin";
 
 const { Option } = Select;
 
@@ -16,8 +16,14 @@ export default function CheckinPage() {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        getLaborList().then(data => setLaborList(data));
-        getCheckinList().then(data => setCheckinList(data));
+        laborApi.getList().then((res) => {
+            const data = res as unknown as { code: number; data: Labor[] };
+            setLaborList(data.data || []);
+        });
+        checkinApi.getList().then((res) => {
+            const data = res as unknown as { code: number; data: Checkin[] };
+            setCheckinList(data.data || []);
+        });
     }, []);
 
     const handleCheckin = async () => {
@@ -26,11 +32,12 @@ export default function CheckinPage() {
         if (!labor) return;
         setLoading(true);
         try {
-        await submitCheckin({ ...v, work_id: labor.work_id, name: labor.name });
+        await checkinApi.submit({ ...v, work_id: labor.work_id, name: labor.name });
         message.success("打卡成功");
         form.resetFields();
-        const data = await getCheckinList();
-        setCheckinList(data);
+        const res = await checkinApi.getList();
+        const data = res as unknown as { code: number; data: Checkin[] };
+        setCheckinList(data.data || []);
         } catch { message.error("失败"); }
         setLoading(false);
     };
@@ -49,8 +56,8 @@ export default function CheckinPage() {
             <Form.Item>
             <Button type="primary" style={{ marginRight: 8 }} onClick={handleCheckin} loading={loading} icon={<ClockCircleOutlined />}>打卡</Button>
             <Button type="primary" onClick={async ()=>{
-                const res = await getMCPHeartbeat();
-                message.info(`机具在线：${res.deviceCode}`);
+                const res = await mcpApi.getHeartbeat();
+                message.info(`机具在线：${res.data.deviceCode}`);
                 }}>
                 🔌 连接工地MCP考勤机具
             </Button>

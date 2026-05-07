@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Card, Table, Typography, Tag } from "antd";
-import { getSystemLogs, type LogItem } from "../../api/system";
+import { systemApi } from "../../request/api/system";
+import type { LogItem } from "../../request/api/system";
 
 const { Title } = Typography;
 
-// 表格列配置
 const columns = [
     {
         title: "序号",
@@ -52,8 +52,8 @@ export default function LogPage() {
     const fetchLogs = async () => {
         setLoading(true);
         try {
-        const result = await getSystemLogs();
-        setData(result);
+        const res = await systemApi.getLogs();
+        setData(res.data);
         } finally {
         setLoading(false);
         }

@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Card, Row, Col, Statistic, Space } from "antd";
 import { UserOutlined, WarningOutlined, CheckCircleOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import ReactECharts from "echarts-for-react";
-import { getDashboardStatistics, type DashboardData } from "../../api/dashboard";
+import { dashboardApi } from "../../request/api/dashboard";
+import type { DashboardData } from "../../request/api/dashboard";
 
 export default function DashboardPage(){
     const [data,setData] = useState<DashboardData>({});
     useEffect(()=>{
-        getDashboardStatistics().then(data=>setData(data));
+        dashboardApi.getStatistics().then(res=>setData(res.data));
     },[]);
 
     const pieOpt = {

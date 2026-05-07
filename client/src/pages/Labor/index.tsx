@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button, Card, Table, Tag, Space, Input, message, Spin, Modal, Form, InputNumber, Popconfirm } from "antd";
 import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
-import { getLaborList, searchLabor, addLabor, updateLabor, deleteLabor } from "../../api/labor";
-import type { Labor } from "../../api/labor";
+import { laborApi } from "../../request/api/labor";
+import type { Labor } from "../../request/api/labor";
+import type { ApiResponse } from "../../request/api/labor";
 
 export default function LaborPage() {
     const [form] = Form.useForm();
@@ -13,12 +14,11 @@ export default function LaborPage() {
     const [modalVisible, setModalVisible] = useState(false);
     const [editingItem, setEditingItem] = useState<Labor | null>(null);
 
-    // 获取人员
     const fetchLaborList = async () => {
         setPageLoading(true);
         try {
-        const data = await getLaborList();
-        setLaborList(data);
+        const res = await laborApi.getList() as unknown as ApiResponse<Labor[]>;
+        setLaborList(res.data || []);
         } catch {
         message.error("后端未启动");
         } finally {
@@ -36,11 +36,11 @@ export default function LaborPage() {
         if (!searchVal.trim()) { message.warning("请输入工号"); return; }
         setLoading(true);
         try {
-            const res = await searchLabor(searchVal);
+            const res = await laborApi.search(searchVal) as unknown as ApiResponse<Labor>;
             if(res.code === 200) {
-                setLaborList(res.data);
+                setLaborList(res.data ? [res.data] : []);
             } else {
-                message.warning(res.message);
+                message.warning(res.message || "搜索失败");
             }
         } catch { message.error("请求失败"); }
         setLoading(false);
@@ -62,10 +62,10 @@ export default function LaborPage() {
         setLoading(true);
         try {
         if (editingItem) {
-            await updateLabor(editingItem.id, values);
+            await laborApi.update(editingItem.id, values);
             message.success("修改成功");
         } else {
-            await addLabor(values);
+            await laborApi.add(values);
             message.success("添加成功");
         }
         setModalVisible(false);
@@ -77,7 +77,7 @@ export default function LaborPage() {
     const handleDelete = async (id: number) => {
         setLoading(true);
         try {
-        await deleteLabor(id);
+        await laborApi.delete(id);
         message.success("删除成功");
         fetchLaborList();
         } catch { message.error("失败"); }

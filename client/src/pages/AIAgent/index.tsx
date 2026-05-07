@@ -1,9 +1,7 @@
 import { useState, useRef } from "react";
 import { Card, Input, Button, Space, Tag, message } from "antd";
 import { RobotOutlined, AudioOutlined, FileExcelOutlined, WarningOutlined } from "@ant-design/icons";
-import axios from "axios";
-
-const api = axios.create({ baseURL: "http://localhost:8000/api" });
+import { aiApi } from "../../request/api/ai";
 
 export default function AIAgentPage() {
   const [question, setQuestion] = useState("");
@@ -34,7 +32,6 @@ export default function AIAgentPage() {
   const [loading, setLoading] = useState(false);
   const recognitionRef = useRef<unknown | null>(null);
 
-  // ========== 1. AI语音问答 核心 ==========
   const startVoiceRecognition = () => {
     const SpeechRecognitionConstructor = (window as Window & { SpeechRecognition?: { new(): unknown }; webkitSpeechRecognition?: { new(): unknown } }).SpeechRecognition || (window as Window & { SpeechRecognition?: { new(): unknown }; webkitSpeechRecognition?: { new(): unknown } }).webkitSpeechRecognition;
     if (!SpeechRecognitionConstructor) {
@@ -53,7 +50,6 @@ export default function AIAgentPage() {
     recognitionRef.current = recog;
   };
 
-  // ========== 2. AI自治问答 ==========
   const handleAI = async () => {
     if (!question.trim()) {
       message.warning("请输入问题或使用语音提问");
@@ -63,9 +59,9 @@ export default function AIAgentPage() {
     setWarningList([]);
     setLoading(true);
     try {
-      const res = await api.post("/agent/auto_work", { question });
-      setAgentData(res.data.data);
-      setWarningList(res.data.data.warning_msg || []);
+      const res = await aiApi.autoWork(question);
+      setAgentData(res.data);
+      setWarningList(res.data.warning_msg || []);
       message.success("AI自治分析完成");
     } catch {
       message.error("AI请求异常");
@@ -73,11 +69,9 @@ export default function AIAgentPage() {
     setLoading(false);
   };
 
-  // ========== 3. AI生成Excel报表 ==========
   const exportReport = async () => {
     try {
-      const res = await api.get("/export/labor-report");
-      // 前端触发下载
+      const res = await aiApi.exportReport();
       const a = document.createElement("a");
       a.href = res.data.url;
       a.download = res.data.fileName;
@@ -88,10 +82,9 @@ export default function AIAgentPage() {
     }
   };
 
-  // ========== 4. 系统主动全局预警巡检 ==========
   const checkAutoWarning = async () => {
     try {
-      await api.post("/system/auto-warning");
+      await aiApi.checkAutoWarning();
       message.info("已完成全项目合规风险巡检");
     } catch {
       message.error("巡检异常");

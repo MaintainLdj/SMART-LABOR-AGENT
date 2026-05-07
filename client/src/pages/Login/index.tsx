@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Card, Form, Input, Button, message } from "antd";
 import { useNavigate } from "react-router-dom";
-import { login, type LoginValues } from "../../api/auth";
+import { authApi } from "../../request/api/auth";
+import type { LoginValues } from "../../request/api/auth";
 
 export default function LoginPage(){
     const nav = useNavigate();
@@ -10,8 +11,8 @@ export default function LoginPage(){
     const onFinish = async (v: LoginValues) => {
         setLoad(true);
         try{
-            const res = await login(v);
-            localStorage.setItem("token", res.token);
+            const res = await authApi.login(v);
+            localStorage.setItem("token", res.data.token);
             message.success("登录成功");
             nav("/");
         } catch {

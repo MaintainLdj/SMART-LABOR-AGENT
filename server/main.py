@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -9,7 +9,10 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from mcp.mcp_protocol import mcp_client
 from utils.logger import add_oper_log
-
+from utils.file_util import save_upload_file
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 # AI工作流
 from agent.workflow import agent_workflow
 
@@ -24,6 +27,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 全局异常拦截
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(content={"code": exc.status_code, "msg": exc.detail, "data": None}, status_code=200)
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(content={"code": 400, "msg": "参数校验失败", "data": None}, status_code=200)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    return JSONResponse(content={"code": 500, "msg": "服务器内部错误：" + str(exc), "data": None}, status_code=200)
 
 # ==================== JWT 登录配置 ====================
 SECRET_KEY = "smart-labor-agent-2025"  # JWT签名密钥
@@ -280,3 +296,43 @@ async def mcp_heart():
 def get_system_logs():
     from utils.logger import get_all_logs
     return {"code": 200, "data": get_all_logs()}
+
+# 合同/协议文件上传
+@app.post("/api/upload/contract")
+async def upload_contract(file: UploadFile = File(...)):
+    try:
+        suffix = os.path.splitext(file.filename)[-1]
+        url = await save_upload_file(file, suffix)
+        add_oper_log("文件管理", f"上传合同文件：{file.filename}")
+        return {"code": 200, "msg": "上传成功", "url": url}
+    except Exception as e:
+        return {"code": 500, "msg": str(e)}
+    
+# 黑名单数据
+black_list = []
+
+class BlackItem(BaseModel):
+    name: str
+    work_id: str
+    reason: str
+def get_black_list():
+    return black_list
+
+# 新增黑名单
+@app.post("/api/black/add")
+async def add_black(item: BlackItem):
+    black_list.append({
+        "id": len(black_list)+1,
+        "name": item.name,
+        "work_id": item.work_id,
+        "reason": item.reason,
+        "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    add_oper_log("黑名单", f"封禁人员：{item.name}")
+    await manager.broadcast({"type":"warning","msg":f"⚠️ 人员【{item.name}】已加入劳务黑名单"})
+    return {"code":200,"msg":"加入黑名单成功"}
+
+# 查询黑名单
+@app.get("/api/black/list")
+def black_list_api():
+    return {"code":200,"data":black_list}

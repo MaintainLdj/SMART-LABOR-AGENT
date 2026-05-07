@@ -8,6 +8,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Labor from "./pages/Labor";
 import Checkin from "./pages/Checkin";
+import Contract from "./pages/Contract";
+import Black from "./pages/Black";
 import AIAgent from "./pages/AIAgent";
 import LogPage from "./pages/Log";
 import "./App.css";
@@ -63,6 +65,8 @@ function App() {
               <Link to="/" className="nav-link">数据大盘</Link>
               <Link to="/labor" className="nav-link">人员管理</Link>
               <Link to="/checkin" className="nav-link">考勤打卡</Link>
+              <Link to="/contract" className="nav-link">合同管理</Link>
+              <Link to="/black" className="nav-link">黑名单</Link>
               <Link to="/ai" className="nav-link">AI自治</Link>
               <Link to="/logs" className="nav-link">操作日志</Link>
             </div>
@@ -76,6 +80,8 @@ function App() {
           <Route path="/" element={<RequireAuth><Dashboard/></RequireAuth>}/>
           <Route path="/labor" element={<RequireAuth><Labor/></RequireAuth>}/>
           <Route path="/checkin" element={<RequireAuth><Checkin/></RequireAuth>}/>
+          <Route path="/contract" element={<RequireAuth><Contract/></RequireAuth>}/>
+          <Route path="/black" element={<RequireAuth><Black/></RequireAuth>}/>
           <Route path="/ai" element={<RequireAuth><AIAgent/></RequireAuth>}/>
           <Route path="/logs" element={<RequireAuth><LogPage/></RequireAuth>}/>
         </Routes>
