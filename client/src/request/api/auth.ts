@@ -6,5 +6,5 @@ export interface LoginValues {
 }
 
 export const authApi = {
-  login: (values: LoginValues) => request.post("/login", values)
+  login: (values: LoginValues) => request.post<{token: string}>("/login", values) as unknown as Promise<{token: string}>
 };
