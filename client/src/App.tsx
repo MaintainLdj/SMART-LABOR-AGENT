@@ -3,7 +3,7 @@ import { Layout, Typography, Button, message } from "antd";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { wsClient } from "./utils/websocket";
-import { isLogin, logout } from "./utils/auth";
+import { isLogin, logout, getUserRole } from "./utils/auth";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Labor from "./pages/Labor";
@@ -11,7 +11,10 @@ import Checkin from "./pages/Checkin";
 import Contract from "./pages/Contract";
 import Black from "./pages/Black";
 import AIAgent from "./pages/AIAgent";
-import LogPage from "./pages/Log";
+import Log from "./pages/Log";
+import SalaryRule from "./pages/SalaryRule";
+import SalaryCalc from "./pages/SalaryCalc";
+import AttendanceAi from "./pages/AttendanceAi";
 import "./App.css";
 
 const { Header, Content } = Layout;
@@ -31,6 +34,9 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function App() {
   const [, setRK] = useState(0);
   const nav = useNavigate();
+
+  const role = getUserRole();
+  const isAdmin = role === "admin";
 
   useEffect(()=>{
     wsClient.connect();
@@ -69,6 +75,10 @@ function App() {
               <Link to="/black" className="nav-link">黑名单</Link>
               <Link to="/ai" className="nav-link">AI自治</Link>
               <Link to="/logs" className="nav-link">操作日志</Link>
+              <Link to="/attendance-ai" className="nav-link">AI考勤研判</Link>
+              <Link to="/salary-calc" className="nav-link">薪资明细</Link>
+              {/* 仅管理员可见 */}
+              {isAdmin && <Link to="/salary-rule" className="nav-link">薪资规则配置</Link>}
             </div>
           )}
         </div>
@@ -83,7 +93,10 @@ function App() {
           <Route path="/contract" element={<RequireAuth><Contract/></RequireAuth>}/>
           <Route path="/black" element={<RequireAuth><Black/></RequireAuth>}/>
           <Route path="/ai" element={<RequireAuth><AIAgent/></RequireAuth>}/>
-          <Route path="/logs" element={<RequireAuth><LogPage/></RequireAuth>}/>
+          <Route path="/logs" element={<RequireAuth><Log/></RequireAuth>}/>
+          <Route path="/salary-rule" element={<RequireAuth><SalaryRule/></RequireAuth>}/>
+          <Route path="/salary-calc" element={<RequireAuth><SalaryCalc/></RequireAuth>}/>
+          <Route path="/attendance-ai" element={<RequireAuth><AttendanceAi/></RequireAuth>}/>
         </Routes>
       </Content>
     </Layout>

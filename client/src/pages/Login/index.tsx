@@ -19,6 +19,7 @@ export default function LoginPage(){
         try{
             const res = await authApi.login(v);
             localStorage.setItem("token", res.token);
+            localStorage.setItem("role", res.role);
             message.success("登录成功");
             nav("/");
         } catch {

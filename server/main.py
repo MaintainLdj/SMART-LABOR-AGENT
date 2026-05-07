@@ -54,8 +54,13 @@ safe_pwd = raw_pwd.encode('utf-8')[:72].decode('utf-8', 'ignore')
 fake_users = {
     "admin": {
         "username": "admin",
-        "password": pwd_context.hash(safe_pwd),
-        "role": "admin"
+        "password": pwd_context.hash("123456"),
+        "role": "admin"   # 管理员
+    },
+    "operator": {
+        "username": "operator",
+        "password": pwd_context.hash("123456"),
+        "role": "operator" # 普通操作员
     }
 }
 
@@ -76,7 +81,7 @@ def login(user: UserLogin):
     if not account or not pwd_context.verify(user.password, account["password"]):
         raise HTTPException(status_code=400, detail="账号或密码错误")
     token = create_token({"sub": user.username, "role": account["role"]})
-    return {"code":200, "token":token, "username":user.username}
+    return {"code":200, "token":token, "username":user.username, "role": account["role"]}
 
 # ==================== WebSocket ====================
 class ConnectionManager:
@@ -336,3 +341,105 @@ async def add_black(item: BlackItem):
 @app.get("/api/black/list")
 def black_list_api():
     return {"code":200,"data":black_list}
+
+# ==================== 薪资规则配置 ====================
+salary_rule = {
+    "daily_wage": 220,        # 基础日薪
+    "overtime_rate": 1.5,    # 加班倍率
+    "late_deduct": 20,       # 迟到扣款
+    "absent_deduct": 100     # 旷工单日扣款
+}
+
+# ==================== 考勤异常记录 ====================
+attendance_exception_list = []
+
+# ==================== 薪资规则配置 ====================
+class SalaryRuleItem(BaseModel):
+    daily_wage: float
+    overtime_rate: float
+    late_deduct: float
+    absent_deduct: float
+
+# 获取薪资配置
+@app.get("/api/salary/rule")
+def get_salary_rule():
+    return {"code": 200, "data": salary_rule}
+
+# 修改薪资配置
+@app.post("/api/salary/rule")
+async def edit_salary_rule(item: SalaryRuleItem):
+    global salary_rule
+    salary_rule["daily_wage"] = item.daily_wage
+    salary_rule["overtime_rate"] = item.overtime_rate
+    salary_rule["late_deduct"] = item.late_deduct
+    salary_rule["absent_deduct"] = item.absent_deduct
+
+    add_oper_log("薪资配置", "修改薪资核算规则")
+    await manager.broadcast({"type": "system", "msg": "薪资核算规则已更新生效"})
+    return {"code": 200, "msg": "规则修改成功"}
+
+# 智能薪资核算
+@app.get("/api/salary/calc-all")
+def calc_all_salary():
+    res_list = []
+    rule = salary_rule
+    for p in labor_list:
+        # 基础工资
+        base = p["work_days"] * rule["daily_wage"]
+        # 模拟加班3天
+        overtime_money = 3 * rule["daily_wage"] * rule["overtime_rate"]
+        # 模拟迟到2次
+        late_money = 2 * rule["late_deduct"]
+        # 模拟旷工0天
+        absent_money = 0 * rule["absent_deduct"]
+
+        real_salary = base + overtime_money - late_money - absent_money
+
+        res_list.append({
+            "name": p["name"],
+            "work_id": p["work_id"],
+            "work_days": p["work_days"],
+            "base_salary": round(base, 2),
+            "overtime_money": round(overtime_money, 2),
+            "deduct_money": round(late_money + absent_money, 2),
+            "real_salary": round(real_salary, 2)
+        })
+    return {"code": 200, "data": res_list}
+
+# AI 考勤异常智能研判接口
+class CheckinAnalyzeReq(BaseModel):
+    name: str
+    check_time: str
+    standard_start: str = "08:00"
+
+@app.post("/api/attendance/ai-analyze")
+async def ai_attendance_analyze(req: CheckinAnalyzeReq):
+    # 简易时间比对研判
+    hour, minute = map(int, req.check_time.split(":"))
+    std_h, std_m = map(int, req.standard_start.split(":"))
+
+    status = "正常打卡"
+    if hour > std_h or (hour == std_h and minute > 30):
+        status = "迟到"
+    if hour >= 10:
+        status = "严重迟到"
+
+    record = {
+        "id": len(attendance_exception_list) + 1,
+        "name": req.name,
+        "check_time": req.check_time,
+        "status": status,
+        "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    attendance_exception_list.append(record)
+
+    if status != "正常打卡":
+        await manager.broadcast({"type": "warning", "msg": f"AI考勤研判：{req.name} {status}"})
+        add_oper_log("考勤异常", f"{req.name} 被判定为{status}")
+
+    return {"code": 200, "data": record}
+
+# 获取考勤异常列表
+@app.get("/api/attendance/exception-list")
+def get_attendance_exception():
+    return {"code": 200, "data": attendance_exception_list}
