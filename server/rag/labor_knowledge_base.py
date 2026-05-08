@@ -1,4 +1,5 @@
 import jieba
+from pydantic import BaseModel
 
 # 建筑劳务全量行业知识库
 KNOWLEDGE_BASE = [
@@ -86,3 +87,35 @@ def retrieve_relevant_knowledge(query: str, top_k=3):
     for item in top_docs:
         context += f"【{item['title']}｜{item['category']}】\n{item['chunk']}\n\n"
     return context
+
+# 新增知识库条目模型
+class KnowledgeItem(BaseModel):
+    title: str
+    category: str
+    content: str
+
+# 增删改查工具函数
+def get_all_knowledge():
+    return KNOWLEDGE_BASE
+
+def add_knowledge(item: KnowledgeItem):
+    new_id = max([x["id"] for x in KNOWLEDGE_BASE], default=0) + 1
+    KNOWLEDGE_BASE.append({
+        "id": new_id,
+        "title": item.title,
+        "category": item.category,
+        "content": item.content
+    })
+    return True
+
+def edit_knowledge(kid: int, item: KnowledgeItem):
+    for idx, doc in enumerate(KNOWLEDGE_BASE):
+        if doc["id"] == kid:
+            KNOWLEDGE_BASE[idx] = {"id":kid,**item.dict()}
+            return True
+    return False
+
+def del_knowledge(kid: int):
+    global KNOWLEDGE_BASE
+    KNOWLEDGE_BASE = [x for x in KNOWLEDGE_BASE if x["id"] != kid]
+    return True

@@ -15,6 +15,8 @@ import Log from "./pages/Log";
 import SalaryRule from "./pages/SalaryRule";
 import SalaryCalc from "./pages/SalaryCalc";
 import AttendanceAi from "./pages/AttendanceAi";
+import Knowledge from "./pages/Knowledge";
+import UserCenter from "./pages/UserCenter";
 import "./App.css";
 
 const { Header, Content } = Layout;
@@ -79,6 +81,8 @@ function App() {
               <Link to="/salary-calc" className="nav-link">薪资明细</Link>
               {/* 仅管理员可见 */}
               {isAdmin && <Link to="/salary-rule" className="nav-link">薪资规则配置</Link>}
+              {isAdmin && <Link to="/knowledge" className="nav-link">RAG知识库管理</Link>}
+              <Link to="/user-center" className="nav-link">个人中心</Link>
             </div>
           )}
         </div>
@@ -97,6 +101,8 @@ function App() {
           <Route path="/salary-rule" element={<RequireAuth><SalaryRule/></RequireAuth>}/>
           <Route path="/salary-calc" element={<RequireAuth><SalaryCalc/></RequireAuth>}/>
           <Route path="/attendance-ai" element={<RequireAuth><AttendanceAi/></RequireAuth>}/>
+          <Route path="/knowledge" element={<RequireAuth><Knowledge/></RequireAuth>}/>
+          <Route path="/user-center" element={<RequireAuth><UserCenter/></RequireAuth>}/>
         </Routes>
       </Content>
     </Layout>

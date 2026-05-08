@@ -41,6 +41,35 @@ export default function DashboardPage(){
                 <Col span={12}><Card title="人员状态">{<ReactECharts option={pieOpt}/>}</Card></Col>
                 <Col span={12}><Card title="风险统计">{<ReactECharts option={barOpt}/>}</Card></Col>
             </Row>
+
+            <Card title="月度薪资总额统计" style={{marginTop:20}}>
+            <ReactECharts
+                option={{
+                xAxis: { type: 'category', data: ['施工一组','机电组','安全组'] },
+                yAxis: { type: 'value' },
+                series: [{ type: 'bar', data: [15800, 13200, 9600] }]
+                }}
+                style={{height:300}}
+            />
+            </Card>
+
+            <Card title="人员状态占比" style={{marginTop:20}}>
+            <ReactECharts
+                option={{
+                tooltip: { trigger: 'item' },
+                series: [{
+                    type: 'pie',
+                    radius: '60%',
+                    data: [
+                    {name:'正常在岗',value:12},
+                    {name:'出勤不足',value:3},
+                    {name:'请假离岗',value:2}
+                    ]
+                }]
+                }}
+                style={{height:300}}
+            />
+            </Card>
         </Space>
     )
 }

@@ -13,6 +13,7 @@ from utils.file_util import save_upload_file
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from rag.labor_knowledge_base import get_all_knowledge, add_knowledge, edit_knowledge, del_knowledge, KnowledgeItem
 # AI工作流
 from agent.workflow import agent_workflow
 
@@ -51,12 +52,12 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  # 密码加�
 fake_users = {
     "admin": {
         "username": "admin",
-        "password": pwd_context.hash("123456"),
+        "password": pwd_context.hash("123456"[:72]),
         "role": "admin"   # 管理员
     },
     "operator": {
         "username": "operator",
-        "password": pwd_context.hash("123456"),
+        "password": pwd_context.hash("123456"[:72]),
         "role": "operator" # 普通操作员
     }
 }
@@ -436,3 +437,31 @@ async def ai_attendance_analyze(req: CheckinAnalyzeReq):
 @app.get("/api/attendance/exception-list")
 def get_attendance_exception():
     return {"code": 200, "data": attendance_exception_list}
+
+# 获取全部知识库
+@app.get("/api/knowledge/list")
+def knowledge_list():
+    return {"code":200,"data":get_all_knowledge()}
+
+# 新增知识库
+@app.post("/api/knowledge/add")
+async def knowledge_add(item: KnowledgeItem):
+    add_knowledge(item)
+    add_oper_log("知识库管理", f"新增法规：{item.title}")
+    await manager.broadcast({"type":"system","msg":"RAG知识库已新增条目，即刻生效"})
+    return {"code":200,"msg":"新增成功"}
+
+# 编辑知识库
+@app.post("/api/knowledge/edit/{kid}")
+async def knowledge_edit(kid:int, item:KnowledgeItem):
+    edit_knowledge(kid, item)
+    add_oper_log("知识库管理", f"编辑法规：{item.title}")
+    return {"code":200,"msg":"编辑成功"}
+
+# 删除知识库
+@app.delete("/api/knowledge/del/{kid}")
+async def knowledge_del(kid:int):
+    del_knowledge(kid)
+    add_oper_log("知识库管理", f"删除知识库ID：{kid}")
+    await manager.broadcast({"type":"warning","msg":"已删除一条RAG法规知识库条目"})
+    return {"code":200,"msg":"删除成功"}
